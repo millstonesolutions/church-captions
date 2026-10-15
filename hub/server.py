@@ -349,6 +349,12 @@ async def public_off():
     return await _set_public(False)
 
 
+@app.api_route("/api/public/toggle", methods=["GET", "POST"])
+async def public_toggle():
+    """One Companion button: flips public captions. The response says which way it went."""
+    return await _set_public(not CONFIG["public"].get("enabled"))
+
+
 async def _set_public(on: bool):
     CONFIG["public"]["enabled"] = on
     save_config()

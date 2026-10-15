@@ -166,10 +166,20 @@ are watching. Share `https://your-site/captions/` with a QR code in the bulletin
 
 ## Bitfocus Companion
 
-Generic HTTP module: `GET http://<mac-ip>:8787/api/start`, `/api/stop`, `/api/clear`. Status is
-`GET /api/status` (JSON, includes the input level). Set the sermon's book before the message with
-`GET /api/focus?book=Romans` (a name or a code like `ROM`; empty clears). Public captions on and off:
-`GET /api/public/on`, `GET /api/public/off`.
+Add a **Generic HTTP** connection, then one button per command with a **GET** action to
+`http://<mac-ip>:8787` plus the path:
+
+| Button | Path |
+|---|---|
+| Captions start / stop | `/api/start`, `/api/stop` |
+| Clear the screens | `/api/clear` |
+| Public on / off (two buttons) | `/api/public/on`, `/api/public/off` |
+| Public on/off (one button) | `/api/public/toggle` |
+| Book being preached | `/api/focus?book=Romans` (a name or a code like `ROM`; `/api/focus?book=` clears) |
+
+Separate **on** and **off** buttons are the safer choice for Public: pressing "off" twice never turns it back
+on. `GET /api/status` returns JSON with `running`, the input level and `public.enabled` / `public.viewers`,
+for button feedback. POST works for every path too.
 
 ## ProPresenter 7 (optional)
 
