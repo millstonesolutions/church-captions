@@ -39,6 +39,14 @@ fed from an X32 over X-USB; developed on a MacBook Pro.
   anything else — volunteers will "fix" it.
 - Reader theme lives on `<html>` (`:root.dark`), not `<body>` — on body only the bar changed colour
   because `<html>` kept painting the dark background. Light is the default.
+- Reader scrolling (`reader.html`): lines fill from the bottom like a chat (`#log` is a min-height:100dvh
+  flex column, `justify-content:flex-end`). The old `padding-bottom:60vh` parked every new line at the top
+  of an empty phone screen. "Has the reader scrolled back?" is decided in `toBottom()` when a line arrives,
+  against `min(pinned, maxScroll())` - not in the scroll event (delivered late, after the next line already
+  pulled the page down) and not against `pinned` alone (a revised partial that gets shorter shrinks the
+  page and the browser drags scrollY up with it). No requestAnimationFrame: a busy phone delays frames.
+- Pages and scripts are served `Cache-Control: no-cache` (hub middleware, relay `_send`) - phones kept
+  running a stale reader after updates. Test the reader with `?v=N` to dodge the browser pane's cache.
 - Password-type settings are masked (`MASK`) in GET /api/config; a POST of the mask means "unchanged".
 - Brand (FBC kit) on the pages: black, white, cyan `#02CAF2`, blue `#097DDB`, grays; Lato. **No red.**
 

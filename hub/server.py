@@ -131,6 +131,16 @@ app = FastAPI(title="Church Captions Hub")
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 
 
+@app.middleware("http")
+async def revalidate(request: Request, call_next):
+    # Pages and scripts change with updates; without this, phones and tablets kept running a cached
+    # old reader. "no-cache" still allows 304s via the ETag, so it costs a round-trip, not a download.
+    resp = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        resp.headers.setdefault("Cache-Control", "no-cache")
+    return resp
+
+
 def cfg_get(key):
     sec, name = key.split(".", 1)
     return CONFIG[sec].get(name)

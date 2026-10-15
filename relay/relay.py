@@ -127,7 +127,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", cache)
         self.end_headers()
-        self.wfile.write(body)
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
     def _json(self, code: int, obj):
         self._send(code, json.dumps(obj).encode())
@@ -148,9 +149,16 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/static/"):
             f = (STATIC / path[len("/static/"):]).resolve()
             if f.is_file() and STATIC in f.parents:
+                # Fonts can be cached; the page script must not be, or phones run a stale reader.
                 return self._send(200, f.read_bytes(), TYPES.get(f.suffix[1:], "application/octet-stream"),
-                                  "public, max-age=300")
+                                  "public, max-age=86400" if f.suffix == ".ttf" else "no-cache")
         self._send(404, b"not found", "text/plain")
+
+    def do_HEAD(self):
+        # Link previews and uptime checks use HEAD; answer like GET without a body (or a stream).
+        if self.path.split("?", 1)[0] == "/events":
+            return self._send(200, b"", "text/event-stream")
+        self.do_GET()
 
     def _events(self):
         if len(S.viewers) >= MAX_VIEWERS:
