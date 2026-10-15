@@ -1,0 +1,20 @@
+[Unit]
+Description=Church Captions public relay (captions for phones off the church network)
+After=network.target
+
+[Service]
+EnvironmentFile=/etc/church-captions-relay.env
+ExecStart=/usr/bin/python3 /opt/church-captions-relay/relay.py
+Restart=always
+RestartSec=2
+# Runs as a throwaway user with a read-only view of the system.
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

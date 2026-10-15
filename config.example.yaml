@@ -59,3 +59,9 @@ propresenter:
   token: text
   lines: 2
   min_interval_s: 0.5
+
+public:                         # phones off the church network - see relay/ and README "Public captions"
+  enabled: false                # off by default; Companion /api/public/on and /api/public/off
+  url: ""                       # e.g. https://example.org/captions
+  key: ""                       # must match RELAY_KEY on the relay server
+  history_lines: 0              # earlier lines shown to late joiners (0 = none)

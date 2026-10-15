@@ -14,6 +14,11 @@ fed from an X32 over X-USB; developed on a MacBook Pro.
   `_keep()` drops hallucinated segments (confidence, no-speech, compression ratio, stock phrases).
 - `hub/vocab.py` — builds Whisper's prompt from the lexicon and fixes near-miss spellings.
 - `tools/build_lexicon.py` — WEB verse-per-line text → `data/lexicon.json`. `tools/ab_test.py` A/Bs it.
+- `hub/public.py` + `relay/relay.py` — public captions. Hub POSTs to the relay (outbound, Bearer key);
+  relay fans out over SSE. Stdlib only on the relay side. Off unless `public.enabled`; heartbeat every
+  20 s, relay goes dark after 75 s without one. Production relay: Oracle VM behind Caddy at
+  `https://fbcld.first-baptist.church/captions/` (see the fbcld-roku CLAUDE.md for that host).
+  `reader.html` uses a *relative* `static/caption-client.js` so the same page works under `/captions/`.
 - `config.example.yaml` is committed; `config.yaml` is created from it on first run and is gitignored
   (it holds the settings password).
 
@@ -32,6 +37,9 @@ fed from an X32 over X-USB; developed on a MacBook Pro.
   misses it. Stop it by port: `kill $(lsof -ti tcp:8787 -sTCP:LISTEN)`.
 - Strictness labels: webrtcvad's default is 2, labelled "Normal". Don't relabel so the default reads as
   anything else — volunteers will "fix" it.
+- Reader theme lives on `<html>` (`:root.dark`), not `<body>` — on body only the bar changed colour
+  because `<html>` kept painting the dark background. Light is the default.
+- Password-type settings are masked (`MASK`) in GET /api/config; a POST of the mask means "unchanged".
 - Brand (FBC kit) on the pages: black, white, cyan `#02CAF2`, blue `#097DDB`, grays; Lato. **No red.**
 
 ## Dev loop

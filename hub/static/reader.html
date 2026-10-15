@@ -4,16 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff">
 <title>Live Captions</title>
 <style>
-  :root { --fs: 34px; --bg:#000; --fg:#f2f2f2; --dim:#9a9a9a; }
-  body.light { --bg:#fff; --fg:#111; --dim:#666; }
+  /* Light is the default; the theme is set on <html> so the whole page (not just the bar) follows it. */
+  :root { --fs: 34px; --bg:#fff; --fg:#111; --dim:#595959; --line:#D0D4D7; --btn:#979797; color-scheme: light; }
+  :root.dark { --bg:#000; --fg:#F7F7F7; --dim:#979797; --line:#333; --btn:#595959; color-scheme: dark; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
     font: 500 var(--fs)/1.35 -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; -webkit-text-size-adjust:none; }
   #bar { position:fixed; top:0; left:0; right:0; display:flex; gap:8px; align-items:center; padding:10px 14px;
-    background:var(--bg); border-bottom:1px solid #333; font-size:18px; z-index:2; }
-  #bar button { font-size:22px; padding:6px 16px; border-radius:10px; border:1px solid #666; background:transparent; color:var(--fg); }
+    background:var(--bg); border-bottom:1px solid var(--line); font-size:18px; z-index:2; }
+  #bar button { font-size:22px; padding:6px 16px; border-radius:10px; border:1px solid var(--btn); background:transparent; color:var(--fg); }
   #dot { width:12px; height:12px; border-radius:50%; background:#595959; }
   #dot.on { background:#02CAF2; }
   #spacer { flex:1; }
@@ -21,7 +23,7 @@
   #log p { margin:0 0 .55em; }
   #partial { color:var(--dim); }
   #jump { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); display:none;
-    padding:10px 22px; border-radius:24px; background:#2a6cd6; color:#fff; font-size:20px; border:0; }
+    padding:10px 22px; border-radius:24px; background:#097DDB; color:#fff; font-size:20px; border:0; }
 </style>
 </head>
 <body>
@@ -31,27 +33,42 @@
 </div>
 <div id="log"><div id="lines"></div><p id="partial"></p></div>
 <button id="jump" onclick="follow=true; toBottom()">↓ Live</button>
-<script src="/static/caption-client.js"></script>
+<script src="static/caption-client.js"></script>
 <script>
   const linesEl = document.getElementById("lines"), partEl = document.getElementById("partial"),
         dot = document.getElementById("dot"), state = document.getElementById("state"), jump = document.getElementById("jump");
-  let follow = true;
+  let follow = true, connected = false, live = false;
+  function show() {
+    dot.classList.toggle("on", connected && live);
+    state.textContent = !connected ? "Reconnecting…" : live ? "Live" : "Captions are off right now";
+  }
   function esc(s) { return s.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
   function toBottom() { if (follow) { window.scrollTo(0, document.body.scrollHeight); jump.style.display = "none"; } }
   function add(t) { const p = document.createElement("p"); p.textContent = t; linesEl.appendChild(p);
     while (linesEl.children.length > 300) linesEl.firstChild.remove(); toBottom(); }
   function size(d) { const v = Math.min(72, Math.max(20, parseInt(getComputedStyle(document.documentElement).getPropertyValue("--fs")) + d));
     document.documentElement.style.setProperty("--fs", v + "px"); try { localStorage.fs = v; } catch(e){} }
-  function theme() { document.body.classList.toggle("light"); try { localStorage.light = document.body.classList.contains("light") ? 1 : ""; } catch(e){} }
-  try { if (localStorage.fs) document.documentElement.style.setProperty("--fs", localStorage.fs + "px"); if (localStorage.light) document.body.classList.add("light"); } catch(e){}
+  function applyTheme(dark) {
+    document.documentElement.classList.toggle("dark", dark);
+    document.querySelector('meta[name="theme-color"]').content = dark ? "#000000" : "#ffffff";
+  }
+  function theme() {
+    const dark = !document.documentElement.classList.contains("dark");
+    applyTheme(dark);
+    try { localStorage.theme = dark ? "dark" : "light"; } catch(e){}
+  }
+  try {
+    if (localStorage.fs) document.documentElement.style.setProperty("--fs", localStorage.fs + "px");
+    applyTheme(localStorage.theme === "dark");      // light unless this phone chose dark
+  } catch(e) { applyTheme(false); }
   window.addEventListener("scroll", () => {
     const atBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 40;
     follow = atBottom; jump.style.display = atBottom ? "none" : "block";
   });
   connectCaptions({
-    status: ok => { dot.classList.toggle("on", ok); state.textContent = ok ? "Live" : "Reconnecting…"; },
-    running: r => { state.textContent = r ? "Live" : "Paused"; },
-    snapshot: m => { linesEl.innerHTML = ""; m.history.forEach(add); partEl.textContent = m.partial || ""; state.textContent = m.running ? "Live" : "Paused"; },
+    status: ok => { connected = ok; show(); },
+    running: r => { live = r; show(); },
+    snapshot: m => { linesEl.innerHTML = ""; m.history.forEach(add); partEl.textContent = m.partial || ""; live = m.running; show(); },
     final: t => { partEl.textContent = ""; add(t); },
     partial: t => { partEl.textContent = t; toBottom(); },
     clear: () => { linesEl.innerHTML = ""; partEl.textContent = ""; },

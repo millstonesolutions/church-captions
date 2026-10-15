@@ -22,6 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from ruamel.yaml import YAML
 
 from propresenter import ProPresenterPusher
+from public import PublicRelay
 from stt import Transcriber
 from vocab import Vocab
 
@@ -34,7 +35,7 @@ _yaml.preserve_quotes = True
 if not CONFIG_PATH.exists():
     CONFIG_PATH.write_text(EXAMPLE_PATH.read_text())
 CONFIG = _yaml.load(CONFIG_PATH.read_text())
-for section in ("hub", "audio", "stt", "vocab", "overlay", "propresenter"):
+for section in ("hub", "audio", "stt", "vocab", "overlay", "propresenter", "public"):
     CONFIG.setdefault(section, {})
 
 # Every knob the settings page shows. The page is generated from this list, and POST /api/config
@@ -104,6 +105,17 @@ SCHEMA = [
         {"key": "propresenter.lines", "type": "int", "ui": "segmented", "min": 1, "max": 4, "label": "Lines sent"},
         {"key": "propresenter.min_interval_s", "type": "float", "min": 0.1, "max": 5, "step": 0.1, "label": "Minimum seconds between updates"},
     ]},
+    {"section": "Public captions (internet)", "items": [
+        {"key": "public.enabled", "type": "bool", "label": "Send captions to the public page",
+         "help": "Off by default. Anyone with the link can read what the mic hears while this is on, "
+                 "so leave it off for prayer time or pre-service chatter. Companion: /api/public/on and /api/public/off"},
+        {"key": "public.url", "type": "str", "label": "Relay address",
+         "help": "Where relay/relay.py is served, e.g. https://example.org/captions"},
+        {"key": "public.key", "type": "password", "label": "Relay key",
+         "help": "Must match RELAY_KEY on the server."},
+        {"key": "public.history_lines", "type": "int", "min": 0, "max": 50, "label": "Earlier lines shown to late joiners",
+         "help": "0 = phones that join late see only new lines."},
+    ]},
     {"section": "Hub", "items": [
         {"key": "hub.autostart", "type": "bool", "label": "Start transcribing when the Mac boots"},
         {"key": "hub.history_lines", "type": "int", "min": 10, "max": 2000, "step": 10, "label": "Lines kept for late-joining tablets"},
@@ -113,6 +125,7 @@ SCHEMA = [
     ]},
 ]
 FIELDS = {i["key"]: i for s in SCHEMA for i in s["items"]}
+MASK = "••••••••"      # secrets are never sent back to the browser
 
 app = FastAPI(title="Church Captions Hub")
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
@@ -158,6 +171,7 @@ class Hub:
         self.vocab = Vocab(CONFIG["vocab"], LEXICON_PATH)
         self.transcriber = Transcriber(CONFIG["stt"], CONFIG["audio"], self.on_segment, self.vocab)
         self.pro = ProPresenterPusher(CONFIG["propresenter"])
+        self.public = PublicRelay(CONFIG["public"], lambda: self.running)
         self.busy = ""                          # e.g. "loading model" while a restart runs
 
     @property
@@ -184,6 +198,7 @@ class Hub:
             await self.broadcast({"type": "partial", "text": text})
 
     async def broadcast(self, msg: dict):
+        self.public.send(msg)
         data = json.dumps(msg)
         dead = []
         for ws in list(self.clients):
@@ -224,6 +239,8 @@ hub = Hub()
 @app.on_event("startup")
 async def _startup():
     hub.loop = asyncio.get_running_loop()
+    hub.public.start()
+    hub.public.announce()      # a hub restart brings the public page back to the right state
     if CONFIG["hub"].get("autostart", False):
         asyncio.create_task(hub.start())
 
@@ -322,13 +339,30 @@ async def focus(book: str = ""):
     return {"focus_book": code, "active": hub.vocab.focus_codes()}
 
 
+@app.api_route("/api/public/on", methods=["GET", "POST"])
+async def public_on():
+    return await _set_public(True)
+
+
+@app.api_route("/api/public/off", methods=["GET", "POST"])
+async def public_off():
+    return await _set_public(False)
+
+
+async def _set_public(on: bool):
+    CONFIG["public"]["enabled"] = on
+    save_config()
+    hub.public.announce()
+    return hub.public.state()
+
+
 @app.get("/api/status")
 def status():
     t = hub.transcriber
     return JSONResponse({"running": hub.running, "busy": hub.busy, "error": t.last_error,
                          "clients": len(hub.clients), "lines": len(hub.history), "device": t.device_name(),
                          "level_db": round(t.level_db, 1), "speaking": t.speaking, "dropped": t.dropped,
-                         "focus": hub.vocab.focus_codes()})
+                         "focus": hub.vocab.focus_codes(), "public": hub.public.state()})
 
 
 @app.get("/api/devices")
@@ -351,7 +385,7 @@ def save_config():
 @app.get("/api/config")
 def get_config(request: Request):
     require_admin(request)
-    values = {k: cfg_get(k) for k in FIELDS}
+    values = {k: (MASK if FIELDS[k]["type"] == "password" and cfg_get(k) else cfg_get(k)) for k in FIELDS}
     values = json.loads(json.dumps(values, default=lambda o: dict(o) if hasattr(o, "items") else list(o)))
     return {"schema": SCHEMA, "values": values, "devices": hub.transcriber.list_devices(),
             "vocab": hub.vocab.state()}
@@ -367,6 +401,8 @@ async def set_config(request: Request):
         if not field:
             errors[key] = "not a setting"
             continue
+        if field["type"] == "password" and raw == MASK:
+            continue                                     # untouched masked field
         try:
             value = coerce(field, raw)
         except (ValueError, TypeError) as e:
@@ -386,6 +422,8 @@ async def set_config(request: Request):
         await hub.start()
     if any(k.startswith("overlay.") for k in changed):
         await hub.broadcast({"type": "settings", "overlay": hub.overlay_settings()})
+    if any(k.startswith("public.") for k in changed):
+        hub.public.announce()
     if "hub.history_lines" in changed:
         hub.history = hub.history[-int(CONFIG["hub"]["history_lines"]):]
     return {"changed": changed, "errors": errors, "restart_hub": "hub" in restart,

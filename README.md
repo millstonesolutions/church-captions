@@ -21,6 +21,7 @@ It knows the Bible: a vocabulary of ~3,300 names, places and uncommon words from
 - [Audio](#audio)
 - [OBS overlay](#obs-overlay)
 - [Phones and tablets](#phones-and-tablets)
+- [Public captions (off the church network)](#public-captions-off-the-church-network)
 - [Bitfocus Companion](#bitfocus-companion)
 - [ProPresenter 7 (optional)](#propresenter-7-optional)
 - [Start on login](#start-on-login)
@@ -37,8 +38,9 @@ Mixer ──USB──▶ Mac (hub/server.py: VAD → local Whisper → WebSocket
                  ├── /overlay  → OBS Browser Source (transparent lower-third)
                  ├── /reader   → phones and tablets for hard-of-hearing attendees
                  ├── /settings → every setting, applied live (no file editing)
-                 ├── /api/*    → Bitfocus Companion start/stop/clear/focus
-                 └── (optional) ProPresenter 7 Message via REST API
+                 ├── /api/*    → Bitfocus Companion start/stop/clear/focus/public
+                 ├── (optional) ProPresenter 7 Message via REST API
+                 └── (optional) HTTPS POST ──▶ relay on a web server ──▶ phones anywhere
 ```
 
 ## Requirements
@@ -113,8 +115,9 @@ position, line count, box opacity and fade time are set live on the settings pag
 
 ## Phones and tablets
 
-On the same network as the Mac, open `http://<mac-ip>:8787/reader`. Large scrolling text, A−/A+ size buttons,
-light/dark, and a "↓ Live" button after scrolling back. Late joiners get the last 200 lines.
+On the same network as the Mac, open `http://<mac-ip>:8787/reader` (off the network, see
+[Public captions](#public-captions-off-the-church-network)). Large scrolling text, A−/A+ size buttons, light
+(default) or dark, and a "↓ Live" button after scrolling back. Late joiners get the last 200 lines.
 
 - **Add to Home Screen** (Share menu) makes it feel like an app.
 - For tablets handed to attendees, turn on **Guided Access** (Settings → Accessibility) so they stay on the page.
@@ -122,11 +125,51 @@ light/dark, and a "↓ Live" button after scrolling back. Late joiners get the l
 - **Guest Wi-Fi usually can't reach it** — most guest networks isolate clients. To let members use their own
   phones, allow port 8787 from the guest network to the Mac, and set a settings password first.
 
+## Public captions (off the church network)
+
+`relay/` puts the captions on a public web page, so people can follow on their own phone over cellular or
+guest Wi-Fi. The hub sends each line to the relay over **outbound** HTTPS with a shared key — nothing is
+opened on the church router — and phones get them over Server-Sent Events, which every phone browser supports
+and reconnects on its own. The relay is one Python file using only the standard library.
+
+**Public captions are off until you turn them on**, from the **Public** button at the top of the settings
+page or Companion (`/api/public/on`, `/api/public/off`). While on, anyone with the link can read what the
+microphone hears, so leave it off before the service and during anything that shouldn't be published
+(prayer requests, announcements about members). Turning it off clears every phone's screen. If the hub
+stops talking to the relay (Mac asleep, network down), the relay takes the captions down on its own after
+75 seconds. By default phones that join late see only new lines; **Earlier lines shown to late joiners**
+changes that.
+
+Install on a Linux server with Python 3 and a TLS proxy (tested on Ubuntu 24.04 with Caddy):
+
+```bash
+git clone https://github.com/millstonesolutions/church-captions.git
+sudo bash church-captions/relay/install.sh      # prints where it stored the new key
+```
+
+It runs as a locked-down systemd service (`church-captions-relay`) on `127.0.0.1:8788`, keeping its key in
+`/etc/church-captions-relay.env`. Re-run the script after a `git pull` to update; the key is kept. Then add a
+route to Caddy and reload:
+
+```
+redir /captions /captions/
+handle_path /captions/* {
+	reverse_proxy 127.0.0.1:8788 {
+		flush_interval -1
+	}
+}
+```
+
+On the hub's settings page, under **Public captions**, set **Relay address** (`https://your-site/captions`)
+and **Relay key** (the `RELAY_KEY` value from the env file). The **Public** button then shows how many phones
+are watching. Share `https://your-site/captions/` with a QR code in the bulletin or on the screens.
+
 ## Bitfocus Companion
 
 Generic HTTP module: `GET http://<mac-ip>:8787/api/start`, `/api/stop`, `/api/clear`. Status is
 `GET /api/status` (JSON, includes the input level). Set the sermon's book before the message with
-`GET /api/focus?book=Romans` (a name or a code like `ROM`; empty clears).
+`GET /api/focus?book=Romans` (a name or a code like `ROM`; empty clears). Public captions on and off:
+`GET /api/public/on`, `GET /api/public/off`.
 
 ## ProPresenter 7 (optional)
 

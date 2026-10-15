@@ -39,6 +39,7 @@
   button:disabled { opacity:.5; cursor:default; }
   .pill { font-size:13px; font-weight:700; padding:4px 10px; border-radius:20px; border:1px solid #595959; color:var(--soft); }
   .pill.on { border-color:var(--cyan); color:var(--cyan); }
+  button.pill { background:transparent; padding:4px 10px; }
   #meter { width:180px; height:12px; background:#1b1b1b; border-radius:6px; overflow:hidden; position:relative; }
   #meter i { position:absolute; inset:0 auto 0 0; width:0; background:var(--blue); transition:width .1s; }
   #meter i.speech { background:var(--cyan); }
@@ -66,6 +67,7 @@
 <header>
   <h1>Captions <span>Settings</span></h1>
   <span id="run" class="pill">…</span>
+  <button id="pub" class="pill" onclick="togglePublic()" title="Captions on the public web page">Public: …</button>
   <div id="meter" title="Input level"><i></i></div><span id="db"></span>
   <span class="spacer"></span>
   <button class="primary" onclick="ctl('start')">Start</button>
@@ -195,6 +197,7 @@ function render() {
       queue(f.key, read(), textual ? 900 : 350);
     });
     if (textual) el.addEventListener("change", () => queue(f.key, read(), 0));
+    if (f.type === "password") el.addEventListener("focus", () => { if (el.value === state.values[f.key] && el.value) el.value = ""; });
   });
 }
 
@@ -233,12 +236,26 @@ async function rebuild() {
   if (r.ok) { const j = await r.json(); toast(j.output); showVocab(j.vocab); } else toast("Rebuild failed: " + (await r.text()));
 }
 
+async function togglePublic() {
+  const on = !$("#pub").dataset.on;
+  if (on && !confirm("Show captions on the public web page? Anyone with the link will be able to read what the microphone hears.")) return;
+  await fetch("/api/public/" + (on ? "on" : "off"), {method: "POST"});
+  toast(on ? "Public captions on" : "Public captions off"); poll();
+}
+
 async function ctl(a) { await fetch("/api/" + a, {method: "POST"}); poll(); toast(a === "clear" ? "Cleared" : a === "start" ? "Starting…" : "Stopped"); }
 
 let lastVocab = 0;
 async function poll() {
   try {
     const s = await (await fetch("/api/status")).json();
+    const p = s.public, pub = $("#pub");
+    pub.textContent = !p.enabled ? "Public: off" : p.ok === false ? "Public: can't reach relay" : `Public: on · ${p.viewers} viewing`;
+    pub.classList.toggle("on", p.enabled && p.ok !== false);
+    pub.dataset.on = p.enabled ? "1" : "";
+    pub.title = p.error || (p.url ? "Viewer page: " + p.url : "Set the relay address and key below");
+    const cb = document.querySelector('[data-key="public.enabled"]');   // keep the checkbox in step with Companion
+    if (cb && document.activeElement !== cb) cb.checked = p.enabled;
     const run = $("#run");
     run.textContent = s.busy ? "Starting…" : s.running ? "● Transcribing" : "○ Stopped";
     run.classList.toggle("on", s.running);
