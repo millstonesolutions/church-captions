@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Captions overlay</title>
+<style>
+  /* OBS Browser Source: 1920x1080, transparent. Look is set live from /settings;
+     ?lines=2&size=44&bottom=90 in the URL pins a value for this one source instead. */
+  @font-face { font-family: Lato; font-weight: 700; src: url(/static/fonts/Lato-Bold.ttf); }
+  html, body { margin:0; background:transparent; overflow:hidden; width:100%; height:100%; }
+  #box {
+    position:absolute; left:50%; transform:translateX(-50%);
+    bottom:var(--bottom, 90px); max-width:84%;
+    font: 700 var(--size, 44px)/1.3 Lato, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color:#fff; text-align:center;
+    text-shadow: 0 0 6px #000, 0 2px 3px #000;
+  }
+  #box span { background:rgba(0,0,0,var(--box, .72)); padding:.12em .4em; box-decoration-break:clone; -webkit-box-decoration-break:clone; border-radius:.15em; }
+  #partial { opacity:.85; }
+</style>
+</head>
+<body>
+<div id="box"><div id="lines"></div><div id="partial"></div></div>
+<script src="/static/caption-client.js"></script>
+<script>
+  const q = new URLSearchParams(location.search);
+  const r = document.documentElement.style;
+  let N = 2, fadeMs = 12000;
+  function apply(o) {
+    o = o || {};
+    const pick = k => q.get(k) ?? o[k];
+    N = +(pick("lines") || 2);
+    fadeMs = +(pick("fade_s") || 12) * 1000;
+    if (pick("size") != null) r.setProperty("--size", pick("size") + "px");
+    if (pick("bottom") != null) r.setProperty("--bottom", pick("bottom") + "px");
+    if (pick("box_opacity") != null) r.setProperty("--box", pick("box_opacity"));
+    render();
+  }
+  const linesEl = document.getElementById("lines"), partEl = document.getElementById("partial");
+  let lines = [], idle;
+  function render() {
+    linesEl.innerHTML = lines.slice(-N).map(l => `<div><span>${esc(l)}</span></div>`).join("");
+    clearTimeout(idle); idle = setTimeout(() => { lines = []; partEl.innerHTML = ""; linesEl.innerHTML = ""; }, fadeMs); // clear after silence
+  }
+  function esc(s) { return s.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+  apply();
+  connectCaptions({
+    snapshot: m => { lines = m.history.slice(-N); apply(m.overlay); },
+    settings: m => apply(m.overlay),
+    final: t => { lines.push(t); partEl.innerHTML = ""; render(); },
+    partial: t => { partEl.innerHTML = `<span>${esc(t)}</span>`; clearTimeout(idle); },
+    clear: () => { lines = []; partEl.innerHTML = ""; render(); },
+  });
+</script>
+</body>
+</html>

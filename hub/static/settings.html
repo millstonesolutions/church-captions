@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Captions Settings</title>
+<style>
+  @font-face { font-family: Lato; font-weight: 400; src: url(/static/fonts/Lato-Regular.ttf); }
+  @font-face { font-family: Lato; font-weight: 700; src: url(/static/fonts/Lato-Bold.ttf); }
+  @font-face { font-family: Lato; font-weight: 900; src: url(/static/fonts/Lato-Black.ttf); }
+  :root { --bg:#000; --panel:#111; --line:#2a2a2a; --fg:#fff; --dim:#979797; --soft:#D0D4D7;
+          --cyan:#02CAF2; --blue:#097DDB; --warn:#F7F7F7; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:400 16px/1.45 Lato, -apple-system, sans-serif; }
+  header { position:sticky; top:0; z-index:5; background:var(--bg); border-bottom:1px solid var(--line);
+           padding:12px 16px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  h1 { font-weight:900; font-size:22px; margin:0 12px 0 0; }
+  h1 span { color:var(--cyan); }
+  h2 { font-weight:700; font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:var(--cyan); margin:0 0 14px; }
+  main { max-width:960px; margin:0 auto; padding:16px; display:grid; gap:16px; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; }
+  .row { display:grid; grid-template-columns: minmax(180px, 300px) 1fr; gap:6px 18px; padding:10px 0; border-top:1px solid var(--line); }
+  .row:first-of-type { border-top:0; }
+  .row label { font-weight:700; color:var(--soft); padding-top:6px; }
+  .help { grid-column:2; color:var(--dim); font-size:13px; margin-top:-2px; }
+  .ctl { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  input, select, textarea, button { font:inherit; color:var(--fg); background:#000; border:1px solid #595959; border-radius:8px; padding:7px 10px; }
+  input[type=number] { width:96px; }
+  input[type=range] { flex:1; min-width:140px; accent-color:var(--cyan); padding:0; border:0; }
+  .seg { display:flex; width:100%; max-width:440px; border:1px solid #595959; border-radius:8px; overflow:hidden; }
+  .seg button { border:0; border-radius:0; border-left:1px solid #595959; background:#000; color:var(--soft); font-weight:700; padding:7px 4px; flex:1; white-space:nowrap; font-size:15px; }
+  .seg button:first-child { border-left:0; }
+  .seg button.on { background:var(--cyan); color:#000; }
+  input[type=checkbox] { width:22px; height:22px; accent-color:var(--cyan); }
+  select, input[type=text], input[type=password] { min-width:260px; max-width:100%; }
+  textarea { width:100%; min-height:90px; resize:vertical; }
+  input:focus, select:focus, textarea:focus { outline:2px solid var(--cyan); outline-offset:1px; }
+  button { cursor:pointer; font-weight:700; }
+  button.primary { background:var(--cyan); color:#000; border-color:var(--cyan); }
+  button:disabled { opacity:.5; cursor:default; }
+  .pill { font-size:13px; font-weight:700; padding:4px 10px; border-radius:20px; border:1px solid #595959; color:var(--soft); }
+  .pill.on { border-color:var(--cyan); color:var(--cyan); }
+  #meter { width:180px; height:12px; background:#1b1b1b; border-radius:6px; overflow:hidden; position:relative; }
+  #meter i { position:absolute; inset:0 auto 0 0; width:0; background:var(--blue); transition:width .1s; }
+  #meter i.speech { background:var(--cyan); }
+  #db { font-variant-numeric: tabular-nums; color:var(--dim); width:64px; font-size:13px; }
+  #toast { position:fixed; bottom:20px; right:20px; background:#1b1b1b; border:1px solid var(--cyan); color:var(--fg);
+           padding:10px 16px; border-radius:10px; opacity:0; transition:opacity .2s; pointer-events:none; max-width:80vw; }
+  #toast.show { opacity:1; }
+  .err { color:var(--warn); background:#1b1b1b; border-left:3px solid var(--blue); padding:8px 12px; border-radius:6px; margin-top:8px; }
+  pre { white-space:pre-wrap; background:#000; border:1px solid var(--line); border-radius:8px; padding:10px; color:var(--soft);
+        font:13px/1.5 ui-monospace, Menlo, monospace; margin:6px 0 0; max-height:200px; overflow:auto; }
+  #preview { min-height:3.2em; color:var(--soft); }
+  #preview .p { color:var(--dim); }
+  a { color:var(--cyan); }
+  .spacer { flex:1; }
+  .row > *, .ctl > * { min-width:0; max-width:100%; }
+  @media (max-width: 640px) {
+    .row { grid-template-columns: minmax(0, 1fr); }
+    .help { grid-column:1; }
+    select, input[type=text], input[type=password] { min-width:0; width:100%; }
+    section { padding:14px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Captions <span>Settings</span></h1>
+  <span id="run" class="pill">…</span>
+  <div id="meter" title="Input level"><i></i></div><span id="db"></span>
+  <span class="spacer"></span>
+  <button class="primary" onclick="ctl('start')">Start</button>
+  <button onclick="ctl('stop')">Stop</button>
+  <button onclick="ctl('clear')">Clear</button>
+  <a href="/" style="font-size:14px">Hub</a>
+</header>
+<main>
+  <section>
+    <h2>Live</h2>
+    <div id="preview">Waiting for speech…</div>
+    <div id="errbox"></div>
+  </section>
+  <div id="form"></div>
+  <section>
+    <h2>Prompt Whisper is using now</h2>
+    <div class="ctl"><span id="ptok" class="pill"></span><span id="pfocus" class="pill"></span><span id="plex" class="pill"></span>
+      <span class="spacer"></span><button onclick="rebuild()" id="rb">Rebuild word list from the Bible text</button></div>
+    <pre id="prompt"></pre>
+    <div class="help" style="margin-top:10px">Recent automatic spelling fixes:</div>
+    <pre id="fixes">none yet</pre>
+  </section>
+</main>
+<div id="toast"></div>
+<script src="/static/caption-client.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let state = null, pending = {}, timer;
+
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2600); }
+
+async function load() {
+  const r = await fetch("/api/config");
+  state = await r.json();
+  render();
+  showVocab(state.vocab);
+}
+
+function control(f, v) {
+  const id = "f_" + f.key.replace(".", "_");
+  const on = `data-key="${f.key}"`;
+  if (f.ui === "number")
+    return `<input type="number" id="${id}" ${on} min="${f.min}" max="${f.max}" step="1" value="${v}">`;
+  if (f.ui === "segmented") {
+    let html = "";
+    for (let n = f.min; n <= f.max; n++)
+      html += `<button type="button" data-val="${n}" class="${n === v ? "on" : ""}">${esc(f.labels ? f.labels[n - f.min] : n)}</button>`;
+    return `<div class="seg" id="${id}" ${on}>${html}</div>`;
+  }
+  if (f.ui === "channel") return `<select id="${id}" ${on}>${channelOptions(v)}</select>`;
+  switch (f.type) {
+    case "bool": return `<input type="checkbox" id="${id}" ${on} ${v ? "checked" : ""}>`;
+    case "int": case "float": {
+      const step = f.step ?? (f.type === "int" ? 1 : 0.1);
+      return `<input type="range" ${on} data-pair="${id}" min="${f.min}" max="${f.max}" step="${step}" value="${v}">
+              <input type="number" id="${id}" ${on} min="${f.min}" max="${f.max}" step="${step}" value="${v}">`;
+    }
+    case "select": {
+      const opts = f.options.includes(v) ? f.options : [v, ...f.options];
+      return `<select id="${id}" ${on}>${opts.map(o => `<option ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
+    }
+    case "device": {
+      const names = state.devices.map(d => d.name);
+      const opts = [["", "System default input"], ...state.devices.map(d => [d.name, `${d.name} (${d.channels} ch)`])];
+      if (v && !names.some(n => n.toLowerCase().includes(String(v).toLowerCase()))) opts.unshift([v, `${v} (not connected)`]);
+      const cur = names.find(n => v && n.toLowerCase().includes(String(v).toLowerCase())) ?? v;
+      return `<select id="${id}" ${on}>${opts.map(([val, lab]) => `<option value="${esc(val)}" ${val === cur ? "selected" : ""}>${esc(lab)}</option>`).join("")}</select>`;
+    }
+    case "book": {
+      const opts = [["", "None (detect from the sermon)"], ...state.vocab.books.map(b => [b.code, b.name])];
+      return `<select id="${id}" ${on}>${opts.map(([c, n]) => `<option value="${c}" ${c === v ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>`;
+    }
+    case "list": return `<textarea id="${id}" ${on} spellcheck="false">${esc((v || []).join("\n"))}</textarea>`;
+    case "map": return `<textarea id="${id}" ${on} spellcheck="false" placeholder="Habakuk = Habakkuk">${esc(Object.entries(v || {}).map(([a, b]) => `${a} = ${b}`).join("\n"))}</textarea>`;
+    case "password": return `<input type="password" id="${id}" ${on} value="${esc(v || "")}" autocomplete="new-password">`;
+    default: return `<input type="text" id="${id}" ${on} value="${esc(v ?? "")}">`;
+  }
+}
+
+// Channels of the device currently picked in the Input device list (stored 0-based, shown 1-based).
+function deviceChannels() {
+  const want = String(document.querySelector('[data-key="audio.device"]')?.value ?? state.values["audio.device"] ?? "").toLowerCase();
+  const d = want ? state.devices.find(x => x.name.toLowerCase().includes(want)) : state.devices[0];
+  return d ? d.channels : 2;
+}
+function channelOptions(v) {
+  const n = Math.max(deviceChannels(), v + 1);
+  let html = "";
+  for (let i = 0; i < n; i++)
+    html += `<option value="${i}" ${i === v ? "selected" : ""}>Channel ${i + 1}${i >= deviceChannels() ? " (not on this device)" : ""}</option>`;
+  return html;
+}
+
+function render() {
+  $("#form").innerHTML = state.schema.map(s => `
+    <section><h2>${esc(s.section)}</h2>
+      ${s.items.map(f => `<div class="row">
+        <label for="f_${f.key.replace(".", "_")}">${esc(f.label)}</label>
+        <div class="ctl">${control(f, state.values[f.key])}</div>
+        ${f.help || f.restart ? `<div class="help">${esc(f.help || "")}${f.restart === "hub" ? " Takes effect after the hub restarts." : f.restart === "stt" ? " Changing this restarts the audio for a moment." : ""}</div>` : ""}
+      </div>`).join("")}
+    </section>`).join("");
+
+  document.querySelectorAll("[data-key]").forEach(el => {
+    const f = state.schema.flatMap(s => s.items).find(x => x.key === el.dataset.key);
+    if (f.ui === "segmented") {
+      el.addEventListener("click", e => {
+        const b = e.target.closest("button"); if (!b) return;
+        el.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+        queue(f.key, +b.dataset.val, 0);
+      });
+      return;
+    }
+    if (f.key === "audio.device") el.addEventListener("change", () => {
+      // New device: rebuild the channel list, and fall back to channel 1 if the old one doesn't exist.
+      const ch = document.querySelector('[data-key="audio.channel"]');
+      let cur = +ch.value;
+      if (cur >= deviceChannels()) { cur = 0; queue("audio.channel", 0, 0); }
+      ch.innerHTML = channelOptions(cur);
+    });
+    const textual = f.type === "list" || f.type === "map" || f.type === "str" || f.type === "password";
+    const read = () => f.type === "bool" ? el.checked : el.value;
+    el.addEventListener("input", () => {
+      if (el.dataset.pair) $("#" + el.dataset.pair).value = el.value;
+      else if (el.type === "number") { const r = el.parentElement.querySelector("input[type=range]"); if (r) r.value = el.value; }
+      queue(f.key, read(), textual ? 900 : 350);
+    });
+    if (textual) el.addEventListener("change", () => queue(f.key, read(), 0));
+  });
+}
+
+function queue(key, value, delay) {
+  pending[key] = value;
+  clearTimeout(timer);
+  timer = setTimeout(save, delay);
+}
+
+async function save() {
+  const body = pending; pending = {};
+  if (!Object.keys(body).length) return;
+  const r = await fetch("/api/config", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify(body)});
+  if (!r.ok) { toast("Couldn't save (" + r.status + ")"); return; }
+  const j = await r.json();
+  const errs = Object.entries(j.errors);
+  if (errs.length) toast("Not saved: " + errs.map(([k, e]) => `${k}: ${e}`).join("; "));
+  else if (j.changed.length) toast(j.restart_hub ? "Saved. Restart the hub for the port change." : "Saved and applied");
+  showVocab(j.vocab);
+  poll();
+}
+
+function showVocab(v) {
+  $("#prompt").textContent = v.prompt || "(empty)";
+  $("#ptok").textContent = `${v.prompt_tokens} tokens`;
+  $("#pfocus").textContent = v.focus.length ? "Focus: " + v.focus.map(c => v.books.find(b => b.code === c)?.name || c).join(", ") : "No book focus";
+  $("#pfocus").classList.toggle("on", v.focus.length > 0);
+  $("#plex").textContent = `${v.lexicon_terms.toLocaleString()} Bible words`;
+  $("#fixes").textContent = v.recent_corrections.length ? v.recent_corrections.join("\n") : "none yet";
+}
+
+async function rebuild() {
+  $("#rb").disabled = true; $("#rb").textContent = "Rebuilding…";
+  const r = await fetch("/api/lexicon/rebuild", {method: "POST"});
+  $("#rb").disabled = false; $("#rb").textContent = "Rebuild word list from the Bible text";
+  if (r.ok) { const j = await r.json(); toast(j.output); showVocab(j.vocab); } else toast("Rebuild failed: " + (await r.text()));
+}
+
+async function ctl(a) { await fetch("/api/" + a, {method: "POST"}); poll(); toast(a === "clear" ? "Cleared" : a === "start" ? "Starting…" : "Stopped"); }
+
+let lastVocab = 0;
+async function poll() {
+  try {
+    const s = await (await fetch("/api/status")).json();
+    const run = $("#run");
+    run.textContent = s.busy ? "Starting…" : s.running ? "● Transcribing" : "○ Stopped";
+    run.classList.toggle("on", s.running);
+    const pct = Math.max(0, Math.min(100, (s.level_db + 60) / 60 * 100));
+    const bar = $("#meter i"); bar.style.width = pct + "%"; bar.classList.toggle("speech", s.speaking);
+    $("#db").textContent = s.running ? s.level_db.toFixed(0) + " dB" : "";
+    $("#errbox").innerHTML = s.error ? `<div class="err">${esc(s.error)}</div>` : "";
+    if (Date.now() - lastVocab > 5000 && state) {          // keep the prompt/focus panel current
+      lastVocab = Date.now();
+      const c = await (await fetch("/api/config")).json(); showVocab(c.vocab);
+    }
+  } catch (e) {}
+}
+setInterval(poll, 250);
+
+const pv = $("#preview"); let last = [];
+const draw = p => pv.innerHTML = last.map(l => `<div>${esc(l)}</div>`).join("") + (p ? `<div class="p">${esc(p)}</div>` : "");
+connectCaptions({
+  snapshot: m => { last = m.history.slice(-3); draw(m.partial); },
+  final: t => { last.push(t); last = last.slice(-3); draw(); },
+  partial: t => draw(t),
+  clear: () => { last = []; draw(); },
+});
+load();
+</script>
+</body>
+</html>

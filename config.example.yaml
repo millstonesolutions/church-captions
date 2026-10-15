@@ -1,0 +1,61 @@
+# Default settings. On first run the hub copies this to config.yaml, which holds your own settings
+# (and your settings password) and is not committed. Everything is editable live at
+# http://<mac-ip>:8787/settings - saving there rewrites config.yaml (comments are kept).
+# Hand edits to config.yaml need a restart of the hub to take effect.
+
+hub:
+  bind: 0.0.0.0        # listen on the LAN so tablets and the OBS machine can reach it (restart to change)
+  port: 8787           # restart to change
+  history_lines: 200   # lines kept for late-joining tablets
+  autostart: true      # begin transcribing as soon as the service launches
+  admin_password: ""   # set to require a login (user "admin") for /settings; control API stays open
+
+audio:
+  # Substring of the CoreAudio input name. X32 over the X-USB card shows up as "X-USB".
+  device: ""           # blank = system default input; pick the real one on the settings page
+  # Zero-based input channel. Route a speech-only mix bus (pulpit mics, post-fade) to it.
+  channel: 0
+  gain_db: 0.0         # software gain before the VAD/model; raise if the meter sits below about -40 dB
+
+stt:
+  backend: mlx                                  # mlx (Apple Silicon GPU) | whisper (CPU, Intel)
+  model: mlx-community/whisper-small.en-mlx     # whisper-medium.en-mlx or whisper-large-v3-turbo if the Mac keeps up
+  vad_aggressiveness: 2         # 0-3, higher = stricter about what counts as speech
+  end_silence_ms: 600           # pause length that ends a caption line
+  min_speech_ms: 300            # ignore blips shorter than this
+  max_utterance_s: 12           # force a line break on long run-on sentences
+  partial_interval_s: 1.0       # how often the in-progress line refreshes
+  # Hallucination filters - Whisper invents "Thank you." or loops a phrase on noise and music.
+  min_logprob: -1.0             # drop lines the model is less confident about than this
+  max_no_speech: 0.6            # drop lines it thinks are probably not speech
+  max_compression: 2.4          # drop repetitive loops
+
+vocab:
+  # Words from the World English Bible (data/lexicon.json, built by tools/build_lexicon.py).
+  use_lexicon: true
+  # Always in the prompt, ahead of the Bible words: church names, staff, local places.
+  # e.g. your church's name, pastors' and staff names, your town.
+  custom: []
+  prompt_tokens: 200            # Whisper keeps only ~223 prompt tokens; a Bible name costs ~5
+  focus_book: ""                # book code being preached (PHI, ROM...) - set from the GUI or /api/focus
+  auto_detect_book: true        # follow "turn to Romans 8" / "the book of Ruth" in the sermon
+  focus_minutes: 45             # how long a detected book stays in the prompt
+  autocorrect: true             # fix near-miss spellings of Bible names ("Habakuk" -> "Habakkuk")
+  autocorrect_strictness: 0.84  # 0.75 loose ... 0.95 strict
+  corrections: {}               # exact fixes, "wrong": "right" - applied to every line
+
+overlay:                        # the OBS lower-third; URL params (?lines=&size=&bottom=) still override
+  lines: 2
+  size: 44                      # font px at 1920x1080
+  bottom: 90                    # px from the bottom edge
+  fade_s: 12                    # clear the box after this much silence
+  box_opacity: 0.72
+
+propresenter:
+  enabled: false
+  host: 127.0.0.1
+  port: 1025            # ProPresenter > Settings > Network > Network Port
+  message_id: Captions  # name of the Message with a text token
+  token: text
+  lines: 2
+  min_interval_s: 0.5

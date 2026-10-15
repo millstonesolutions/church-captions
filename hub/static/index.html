@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Captions Hub</title>
+<style>
+  body { font: 16px/1.5 -apple-system, Helvetica, Arial, sans-serif; max-width:720px; margin:40px auto; padding:0 20px; color:#222; }
+  button { font-size:16px; padding:8px 18px; margin-right:8px; border-radius:8px; border:1px solid #888; background:#f5f5f5; }
+  code { background:#eee; padding:2px 6px; border-radius:4px; }
+  #status { margin:16px 0; padding:12px; background:#f0f4ff; border-radius:8px; }
+  #preview { margin-top:20px; padding:12px; min-height:3em; border:1px solid #ddd; border-radius:8px; }
+  #preview .p { color:#888; }
+</style>
+</head>
+<body>
+<h1>Captions Hub</h1>
+<div>
+  <button onclick="api('start')">Start</button>
+  <button onclick="api('stop')">Stop</button>
+  <button onclick="api('clear')">Clear</button>
+</div>
+<div id="status">loading…</div>
+<div id="preview"></div>
+<h3>Outputs</h3>
+<ul>
+  <li>OBS Browser Source: <code id="ov"></code> (1920×1080, transparent). Options: <code>?lines=2&amp;size=44&amp;bottom=90</code></li>
+  <li>Tablet reader: <code id="rd"></code></li>
+  <li>Companion / curl: <code>GET /api/start</code> <code>/api/stop</code> <code>/api/clear</code> <code>/api/status</code></li>
+  <li>Session transcript: <a href="/api/transcript">/api/transcript</a> · Input devices: <a href="/api/devices">/api/devices</a></li>
+  <li><a href="/settings"><b>Settings</b></a> — audio, recognition, Bible vocabulary, overlay look, ProPresenter</li>
+</ul>
+<script src="/static/caption-client.js"></script>
+<script>
+  document.getElementById("ov").textContent = location.origin + "/overlay";
+  document.getElementById("rd").textContent = location.origin + "/reader";
+  async function api(a) { await fetch("/api/" + a, {method:"POST"}); refresh(); }
+  async function refresh() {
+    const s = await (await fetch("/api/status")).json();
+    document.getElementById("status").innerHTML =
+      `<b>${s.running ? "● Transcribing" : "○ Stopped"}</b> &nbsp; input: ${s.device} &nbsp; viewers: ${s.clients} &nbsp; lines: ${s.lines}`;
+  }
+  refresh(); setInterval(refresh, 5000);
+  const pv = document.getElementById("preview"); let last = [];
+  const esc = s => s.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  connectCaptions({
+    snapshot: m => { last = m.history.slice(-3); pv.innerHTML = last.map(l=>`<div>${esc(l)}</div>`).join(""); },
+    final: t => { last.push(t); last = last.slice(-3); pv.innerHTML = last.map(l=>`<div>${esc(l)}</div>`).join(""); },
+    partial: t => { pv.innerHTML = last.map(l=>`<div>${esc(l)}</div>`).join("") + `<div class="p">${esc(t)}</div>`; },
+    clear: () => { last = []; pv.innerHTML = ""; },
+  });
+</script>
+</body>
+</html>
