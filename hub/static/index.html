@@ -10,6 +10,8 @@
   #status { margin:16px 0; padding:12px; background:#f0f4ff; border-radius:8px; }
   #preview { margin-top:20px; padding:12px; min-height:3em; border:1px solid #ddd; border-radius:8px; }
   #preview .p { color:#888; }
+  #pub.on { background:#02CAF2; border-color:#02CAF2; color:#000; font-weight:700; }
+  button:disabled { opacity:.5; }
 </style>
 </head>
 <body>
@@ -18,6 +20,7 @@
   <button onclick="api('start')">Start</button>
   <button onclick="api('stop')">Stop</button>
   <button onclick="api('clear')">Clear</button>
+  <button id="pub" onclick="togglePublic()">Public…</button>
 </div>
 <div id="status">loading…</div>
 <div id="preview"></div>
@@ -25,7 +28,8 @@
 <ul>
   <li>OBS Browser Source: <code id="ov"></code> (1920×1080, transparent). Options: <code>?lines=2&amp;size=44&amp;bottom=90</code></li>
   <li>Tablet reader: <code id="rd"></code></li>
-  <li>Companion / curl: <code>GET /api/start</code> <code>/api/stop</code> <code>/api/clear</code> <code>/api/status</code></li>
+  <li>Companion / curl: <code>GET /api/start</code> <code>/api/stop</code> <code>/api/clear</code> <code>/api/public/on</code> <code>/api/public/off</code> <code>/api/status</code></li>
+  <li>Public page (phones anywhere): <span id="publink">not set up — see Settings → Public captions</span></li>
   <li>Session transcript: <a href="/api/transcript">/api/transcript</a> · Input devices: <a href="/api/devices">/api/devices</a></li>
   <li><a href="/settings"><b>Settings</b></a> — audio, recognition, Bible vocabulary, overlay look, ProPresenter</li>
 </ul>
@@ -34,10 +38,21 @@
   document.getElementById("ov").textContent = location.origin + "/overlay";
   document.getElementById("rd").textContent = location.origin + "/reader";
   async function api(a) { await fetch("/api/" + a, {method:"POST"}); refresh(); }
+  let publicOn = false;
+  async function togglePublic() {
+    if (!publicOn && !confirm("Show captions on the public web page? Anyone with the link will be able to read what the microphone hears.")) return;
+    await api("public/" + (publicOn ? "off" : "on"));
+  }
   async function refresh() {
     const s = await (await fetch("/api/status")).json();
     document.getElementById("status").innerHTML =
       `<b>${s.running ? "● Transcribing" : "○ Stopped"}</b> &nbsp; input: ${s.device} &nbsp; viewers: ${s.clients} &nbsp; lines: ${s.lines}`;
+    const p = s.public, pub = document.getElementById("pub");
+    publicOn = p.enabled;
+    pub.textContent = !p.url ? "Public: not set up" : !p.enabled ? "Go public" : p.ok === false ? "Public: can't reach server" : `Public on · ${p.viewers} viewing`;
+    pub.disabled = !p.url && !p.enabled;
+    pub.classList.toggle("on", p.enabled && p.ok !== false);
+    if (p.url) document.getElementById("publink").innerHTML = `<a href="${p.url}">${p.url}</a>`;
   }
   refresh(); setInterval(refresh, 5000);
   const pv = document.getElementById("preview"); let last = [];
