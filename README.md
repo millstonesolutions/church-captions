@@ -210,6 +210,7 @@ spends them where they matter:
 1. **Always-boost words** (church name, staff, local places) go first.
 2. **The book being preached** — set it on the settings page or from Companion, or the hub picks it up when the
    preacher cites one ("turn to Romans 8", "the book of Ruth"). A passing "the Philippians" doesn't count.
+   The current book shows in the reader's top bar ("Live · Ruth"), on the settings page and on the hub page.
 3. **The hardest common Bible words** fill the rest (Pharisees, Nebuchadnezzar, Gentiles, cherubim…).
 
 Every line is then checked against the *whole* lexicon, so a name that wasn't in the prompt but came back as

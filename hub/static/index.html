@@ -46,7 +46,7 @@
   async function refresh() {
     const s = await (await fetch("/api/status")).json();
     document.getElementById("status").innerHTML =
-      `<b>${s.running ? "● Transcribing" : "○ Stopped"}</b> &nbsp; input: ${s.device} &nbsp; viewers: ${s.clients} &nbsp; lines: ${s.lines}`;
+      `<b>${s.running ? "● Transcribing" : "○ Stopped"}</b> &nbsp; input: ${s.device} &nbsp; viewers: ${s.clients} &nbsp; lines: ${s.lines} &nbsp; book: ${s.books.length ? s.books.join(", ") : "none yet"}`;
     const p = s.public, pub = document.getElementById("pub");
     publicOn = p.enabled;
     pub.textContent = !p.url ? "Public: not set up" : !p.enabled ? "Go public" : p.ok === false ? "Public: can't reach server" : `Public on · ${p.viewers} viewing`;

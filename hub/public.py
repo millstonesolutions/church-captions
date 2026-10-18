@@ -17,9 +17,10 @@ HEARTBEAT_S = 20
 
 
 class PublicRelay:
-    def __init__(self, cfg: dict, is_running):
+    def __init__(self, cfg: dict, is_running, get_books=lambda: []):
         self.cfg = cfg                      # live `public` section of config.yaml
         self.is_running = is_running        # () -> bool: is the hub transcribing
+        self.get_books = get_books          # () -> ["Ruth", ...]: book(s) being preached
         self.viewers = 0
         self.ok = None                      # None = never tried, True/False = last result
         self.error = ""
@@ -37,7 +38,7 @@ class PublicRelay:
 
     def send(self, msg: dict):
         """Queue a hub message (final/partial/clear/status) for the relay."""
-        if not self.enabled or msg.get("type") not in ("final", "partial", "clear", "status"):
+        if not self.enabled or msg.get("type") not in ("final", "partial", "clear", "status", "focus"):
             return
         try:
             self._q.put_nowait(msg)
@@ -46,7 +47,7 @@ class PublicRelay:
 
     def announce(self):
         """Tell the relay the current state now (after a toggle or a hub start/stop)."""
-        msg = {"type": "status", "running": self.enabled and self.is_running(),
+        msg = {"type": "status", "running": self.enabled and self.is_running(), "books": self.get_books(),
                "history_lines": int(self.cfg.get("history_lines", 0))}
         if self.cfg.get("url") and self.cfg.get("key"):
             try:
@@ -86,5 +87,5 @@ class PublicRelay:
                 pass
             if self.enabled and time.time() - last_beat >= HEARTBEAT_S:
                 last_beat = time.time()
-                await self._post([{"type": "heartbeat", "running": self.is_running(),
+                await self._post([{"type": "heartbeat", "running": self.is_running(), "books": self.get_books(),
                                    "history_lines": int(self.cfg.get("history_lines", 0))}])

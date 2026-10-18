@@ -44,10 +44,12 @@ class State:
         self.history_lines = 0      # set by the hub; 0 = no backlog for late joiners
         self.live = False           # the hub has public captions switched on
         self.last_hub = 0.0
+        self.books: list[str] = []  # book(s) being preached, shown in the reader's bar
 
     def snapshot(self) -> dict:
         with self.lock:
-            return {"type": "snapshot", "running": self.live, "history": list(self.history), "partial": ""}
+            return {"type": "snapshot", "running": self.live, "history": list(self.history), "partial": "",
+                    "books": list(self.books) if self.live else []}
 
     def broadcast(self, msg: dict):
         data = json.dumps(msg)
@@ -78,12 +80,21 @@ class State:
         self.last_hub = time.time()
         if "history_lines" in m:
             self.history_lines = max(0, min(200, int(m["history_lines"])))
+        if "books" in m:                       # sent with "focus" messages and every heartbeat
+            books = [str(b)[:40] for b in (m.get("books") or [])][:3]
+            if books != self.books:
+                self.books = books
+                if self.live:
+                    self.broadcast({"type": "focus", "books": books})
+        if kind == "focus":
+            return
         if kind in ("status", "heartbeat"):
             if m.get("running"):
                 with self.lock:
                     was, self.live = self.live, True
                 if not was or kind == "status":
                     self.broadcast({"type": "status", "running": True})
+                    self.broadcast({"type": "focus", "books": list(self.books)})
             else:
                 self.go_dark()
             return

@@ -8,6 +8,7 @@ function dispatchCaption(handlers, m) {
   else if (m.type === "clear") handlers.clear?.();
   else if (m.type === "status") handlers.running?.(m.running);
   else if (m.type === "settings") handlers.settings?.(m);
+  else if (m.type === "focus") handlers.focus?.(m.books || []);
 }
 
 function connectCaptions(handlers) {

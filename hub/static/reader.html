@@ -46,10 +46,11 @@
   const linesEl = document.getElementById("lines"), partEl = document.getElementById("partial"),
         dot = document.getElementById("dot"), state = document.getElementById("state"), jump = document.getElementById("jump");
   const page = document.scrollingElement || document.documentElement;
-  let follow = true, connected = false, live = false, pinned = 0;
+  let follow = true, connected = false, live = false, pinned = 0, book = "";
   function show() {
     dot.classList.toggle("on", connected && live);
-    state.textContent = !connected ? "Reconnecting…" : live ? "Live" : "Off right now";
+    state.textContent = !connected ? "Reconnecting…" : !live ? "Off right now" : book ? "Live · " + book : "Live";
+    state.title = book ? "Reading from " + book : "";
   }
   function maxScroll() { return page.scrollHeight - window.innerHeight; }
   // Follow the newest line unless the reader has scrolled back. The check happens here, when a line
@@ -105,7 +106,8 @@
   connectCaptions({
     status: ok => { connected = ok; show(); },
     running: r => { live = r; show(); },
-    snapshot: m => { linesEl.innerHTML = ""; m.history.forEach(add); partEl.textContent = m.partial || ""; live = m.running; show(); toBottom(true); },
+    focus: b => { book = b[0] || ""; show(); },
+    snapshot: m => { book = (m.books || [])[0] || ""; linesEl.innerHTML = ""; m.history.forEach(add); partEl.textContent = m.partial || ""; live = m.running; show(); toBottom(true); },
     final: t => { partEl.textContent = ""; add(t); },
     partial: t => { partEl.textContent = t; toBottom(); },
     clear: () => { linesEl.innerHTML = ""; partEl.textContent = ""; },

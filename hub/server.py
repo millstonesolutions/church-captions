@@ -181,7 +181,8 @@ class Hub:
         self.vocab = Vocab(CONFIG["vocab"], LEXICON_PATH)
         self.transcriber = Transcriber(CONFIG["stt"], CONFIG["audio"], self.on_segment, self.vocab)
         self.pro = ProPresenterPusher(CONFIG["propresenter"])
-        self.public = PublicRelay(CONFIG["public"], lambda: self.running)
+        self.public = PublicRelay(CONFIG["public"], lambda: self.running, self.book_names)
+        self.books: list[str] = []              # last focus sent to pages, e.g. ["Ruth", "John"]
         self.busy = ""                          # e.g. "loading model" while a restart runs
 
     @property
@@ -222,9 +223,23 @@ class Hub:
     def overlay_settings(self) -> dict:
         return {k: CONFIG["overlay"].get(k) for k in ("lines", "size", "bottom", "fade_s", "box_opacity")}
 
+    def book_names(self) -> list[str]:
+        """Books in focus (manual first, then detected), as spoken names."""
+        return [self.vocab.books[c]["name"] for c in self.vocab.focus_codes() if c in self.vocab.books]
+
+    async def watch_focus(self):
+        # Focus changes from the STT thread (a cited book), the API, the GUI and expiry - poll rather
+        # than hook every path, and tell the pages whenever it changes.
+        while True:
+            await asyncio.sleep(1.5)
+            names = self.book_names()
+            if names != self.books:
+                self.books = names
+                await self.broadcast({"type": "focus", "books": names})
+
     def snapshot(self) -> dict:
         return {"type": "snapshot", "running": self.running, "history": [h["text"] for h in self.history],
-                "partial": self.partial, "overlay": self.overlay_settings()}
+                "partial": self.partial, "overlay": self.overlay_settings(), "books": self.book_names()}
 
     async def start(self):
         if not self.running:
@@ -250,7 +265,8 @@ hub = Hub()
 async def _startup():
     hub.loop = asyncio.get_running_loop()
     hub.public.start()
-    hub.public.announce()      # a hub restart brings the public page back to the right state
+    hub.public.announce()
+    asyncio.create_task(hub.watch_focus())      # a hub restart brings the public page back to the right state
     if CONFIG["hub"].get("autostart", False):
         asyncio.create_task(hub.start())
 
@@ -378,7 +394,8 @@ def status():
     return JSONResponse({"running": hub.running, "busy": hub.busy, "error": t.last_error,
                          "clients": len(hub.clients), "lines": len(hub.history), "device": t.device_name(),
                          "level_db": round(t.level_db, 1), "speaking": t.speaking, "dropped": t.dropped,
-                         "focus": hub.vocab.focus_codes(), "public": hub.public.state()})
+                         "focus": hub.vocab.focus_codes(), "books": hub.book_names(),
+                         "public": hub.public.state()})
 
 
 @app.get("/api/devices")

@@ -39,6 +39,7 @@
   button:disabled { opacity:.5; cursor:default; }
   .pill { font-size:13px; font-weight:700; padding:4px 10px; border-radius:20px; border:1px solid #595959; color:var(--soft); }
   .pill.on { border-color:var(--cyan); color:var(--cyan); }
+  button.pill { background:transparent; padding:4px 10px; font-size:13px; }
   #pub.on { background:var(--cyan); color:#000; border-color:var(--cyan); }
   #pub.err { border-color:var(--blue); color:var(--soft); }
   #meter { width:180px; height:12px; background:#1b1b1b; border-radius:6px; overflow:hidden; position:relative; }
@@ -68,6 +69,7 @@
 <header>
   <h1>Captions <span>Settings</span></h1>
   <span id="run" class="pill">…</span>
+  <button id="book" class="pill" onclick="document.querySelector('[data-key=&quot;vocab.focus_book&quot;]')?.scrollIntoView({block:'center'})" title="Book being preached - click to change">Book: …</button>
   <div id="meter" title="Input level"><i></i></div><span id="db"></span>
   <span class="spacer"></span>
   <button class="primary" onclick="ctl('start')">Start</button>
@@ -250,6 +252,9 @@ let lastVocab = 0;
 async function poll() {
   try {
     const s = await (await fetch("/api/status")).json();
+    const bk = $("#book");
+    bk.textContent = s.books.length ? "Book: " + s.books[0] + (s.books[1] ? " (+ " + s.books[1] + ")" : "") : "Book: none yet";
+    bk.classList.toggle("on", s.books.length > 0);
     const p = s.public, pub = $("#pub");
     pub.textContent = !p.url ? "Public: not set up" : !p.enabled ? "Go public" : p.ok === false ? "Public: can't reach server" : `Public on · ${p.viewers} viewing`;
     pub.disabled = !p.url && !p.enabled;
