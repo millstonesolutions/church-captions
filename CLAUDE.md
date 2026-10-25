@@ -19,6 +19,10 @@ fed from an X32 over X-USB; developed on a MacBook Pro.
   20 s, relay goes dark after 75 s without one. Production relay: Oracle VM behind Caddy at
   `https://fbcld.first-baptist.church/captions/` (see the fbcld-roku CLAUDE.md for that host).
   `reader.html` uses a *relative* `static/caption-client.js` so the same page works under `/captions/`.
+- `run.command` + `tools/make_launcher.sh` — the double-click launcher. The app in /Applications is an
+  osacompile applet that runs this checkout's `run.command` detached (start hub + caffeinate if port is
+  free, then open /settings). Icon drawn by `tools/launcher_icon.swift`; Assets.car must be deleted or the
+  default script icon wins, and the bundle is re-signed ad hoc after editing.
 - `config.example.yaml` is committed; `config.yaml` is created from it on first run and is gitignored
   (it holds the settings password).
 

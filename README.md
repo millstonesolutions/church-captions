@@ -74,9 +74,15 @@ password, so it is ignored by git.
 
 ## Run
 
+Double-click **Church Captions** in Applications (or `run.command` in this folder). It starts the hub if it
+isn't running, keeps the Mac awake while it runs, and opens the settings page — in Chrome if installed. Opening
+it again while the hub is running just brings the page back. Build the app once per Mac:
+
 ```bash
-.venv/bin/python hub/server.py
+zsh tools/make_launcher.sh          # installs /Applications/Church Captions.app, pointing at this folder
 ```
+
+Re-run that after moving the folder. To run the hub by hand instead: `.venv/bin/python hub/server.py`.
 
 Open `http://<mac-ip>:8787` for Start/Stop/Clear and a live preview. With **Start transcribing when the Mac
 boots** on (the default) it begins listening at launch, so a volunteer only needs the Mac powered on.
