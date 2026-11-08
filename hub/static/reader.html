@@ -13,7 +13,7 @@
   :root.dark { --bg:#000; --fg:#F7F7F7; --dim:#979797; --line:#333; --btn:#595959; color-scheme: dark; }
   html, body { margin:0; background:var(--bg); color:var(--fg);
     font: 500 var(--fs)/1.35 -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; -webkit-text-size-adjust:none; }
-  #bar { position:fixed; top:0; left:0; right:0; height:var(--bar); box-sizing:border-box; display:flex; gap:8px;
+  #bar { position:fixed; top:0; left:0; right:0; height:var(--bar); box-sizing:border-box; display:flex;
     align-items:center; padding:0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
     background:var(--bg); border-bottom:1px solid var(--line); font-size:17px; z-index:2; white-space:nowrap; }
   #bar button { font-size:20px; padding:6px 12px; border-radius:10px; border:1px solid var(--btn); background:transparent;
@@ -22,11 +22,13 @@
   #dot.on { background:#02CAF2; }
   #state { overflow:hidden; text-overflow:ellipsis; min-width:0; }
   #spacer { flex:1; }
+  /* Safari before 14.1 has no flex gap; space the bar items with margins instead. */
+  #bar > * + * { margin-left:8px; }
   /* Newest line sits at the bottom of the screen and earlier lines stack up above it, like a chat.
      min-height pins the text to the bottom even before there's a screenful of it. */
   #log { box-sizing:border-box; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column;
     justify-content:flex-end; padding: calc(var(--bar) + 12px) 18px calc(28px + env(safe-area-inset-bottom)); }
-  #log p { margin:0 0 .55em; overflow-wrap:anywhere; }
+  #log p { margin:0 0 .55em; overflow-wrap:break-word; overflow-wrap:anywhere; }
   #partial { color:var(--dim); min-height:1.35em; margin:0; }
   #jump { position:fixed; bottom:calc(18px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%);
     display:none; padding:10px 22px; border-radius:24px; background:#097DDB; color:#fff; font-size:20px; border:0; z-index:3;
@@ -87,7 +89,7 @@
   // Phone browsers resize the viewport as the address bar shows/hides; stay pinned to the bottom.
   const repin = () => { if (follow) toBottom(true); };
   window.addEventListener("resize", repin);
-  window.visualViewport?.addEventListener("resize", repin);
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", repin);   // absent before iOS 13
   function size(d) { const v = Math.min(72, Math.max(20, parseInt(getComputedStyle(document.documentElement).getPropertyValue("--fs")) + d));
     document.documentElement.style.setProperty("--fs", v + "px"); try { localStorage.fs = v; } catch(e){} repin(); }
   function applyTheme(dark) {
