@@ -6,6 +6,11 @@ SIL Open Font License 1.1 — see `hub/static/fonts/OFL.txt`.
 Copyright (c) 2010-2015 Łukasz Dziedzic, with Reserved Font Name "Lato". Lato is a trademark of tyPoland
 Lukasz Dziedzic.
 
+## QR Code Generator for JavaScript
+`hub/static/qrcode.js` is qrcode-generator 1.4.4 (npm), included unmodified and used by the hub page to
+draw reader QR codes offline. MIT license. Copyright (c) 2009 Kazuhiko Arase.
+"QR Code" is a registered trademark of DENSO WAVE INCORPORATED.
+
 ## World English Bible
 `data/lexicon.json` is a list of names, places and uncommon words extracted from the World English Bible
 (https://ebible.org/engwebu/), which is in the public domain. The Bible text itself is **not** included;

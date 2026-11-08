@@ -4,7 +4,9 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Captions Hub</title>
 <style>
-  body { font: 16px/1.5 -apple-system, Helvetica, Arial, sans-serif; max-width:720px; margin:40px auto; padding:0 20px; color:#222; }
+  /* Always light: without an explicit background a dark-mode browser drew this #222 text on black. */
+  :root { color-scheme: light; background:#fff; }
+  body { font: 16px/1.5 -apple-system, Helvetica, Arial, sans-serif; max-width:720px; margin:40px auto; padding:0 20px; color:#222; background:#fff; }
   button { font-size:16px; padding:8px 18px; margin-right:8px; border-radius:8px; border:1px solid #888; background:#f5f5f5; }
   code { background:#eee; padding:2px 6px; border-radius:4px; }
   #status { margin:16px 0; padding:12px; background:#f0f4ff; border-radius:8px; }
@@ -12,6 +14,19 @@
   #preview .p { color:#888; }
   #pub.on { background:#02CAF2; border-color:#02CAF2; color:#000; font-weight:700; }
   button:disabled { opacity:.5; }
+  @font-face { font-family: Lato; font-weight: 400; src: url(/static/fonts/Lato-Regular.ttf); }
+  @font-face { font-family: Lato; font-weight: 700; src: url(/static/fonts/Lato-Bold.ttf); }
+  @font-face { font-family: Lato; font-weight: 900; src: url(/static/fonts/Lato-Black.ttf); }
+  .qrs { display:flex; flex-wrap:wrap; gap:16px; }
+  .qrcard { flex:1 1 300px; border:1px solid #D0D4D7; border-radius:12px; padding:16px; background:#fff; }
+  .qrcard h4 { margin:0 0 4px; font:900 18px Lato, sans-serif; }
+  .qrcard .sub { color:#595959; font-size:14px; margin:0 0 10px; }
+  .qrcard .qr { width:220px; height:220px; margin:6px 0 10px; }
+  .qrcard .qr svg { width:100%; height:100%; display:block; }
+  .qrcard .url { font-family:ui-monospace, Menlo, monospace; font-size:13px; word-break:break-all; margin-bottom:10px; }
+  .qrcard .note { font-size:13px; color:#595959; border-left:3px solid #097DDB; padding-left:8px; margin:0 0 10px; }
+  .qrcard input { font-size:14px; padding:6px 8px; border:1px solid #979797; border-radius:6px; width:150px; }
+  .qrcard button { margin:4px 6px 0 0; }
 </style>
 </head>
 <body>
@@ -33,6 +48,27 @@
   <li>Session transcript: <a href="/api/transcript">/api/transcript</a> · Input devices: <a href="/api/devices">/api/devices</a></li>
   <li><a href="/settings"><b>Settings</b></a> — audio, recognition, Bible vocabulary, overlay look, ProPresenter</li>
 </ul>
+<h3>QR codes for the reader</h3>
+<div class="qrs">
+  <div class="qrcard">
+    <h4>On church Wi-Fi</h4>
+    <p class="sub">Phones and tablets on the same network as this Mac.</p>
+    <div class="qr" id="qr-local"></div>
+    <div class="url" id="url-local"></div>
+    <p class="note" id="note-local">Give this Mac a reserved address on the router, or a printed code stops working when its address changes.</p>
+    <label style="font-size:13px">Mac address <input id="host" spellcheck="false" placeholder="192.168.1.x"></label>
+    <div><button onclick="download('local','png')">Download PNG</button><button onclick="download('local','svg')">Download SVG</button></div>
+  </div>
+  <div class="qrcard">
+    <h4>Anywhere</h4>
+    <p class="sub">Phone data or any Wi-Fi, through the church website.</p>
+    <div class="qr" id="qr-public"></div>
+    <div class="url" id="url-public">not set up — see Settings → Public captions</div>
+    <p class="note">Shows captions only while <b>Public</b> is on.</p>
+    <div><button id="dl-public-png" onclick="download('public','png')">Download PNG</button><button id="dl-public-svg" onclick="download('public','svg')">Download SVG</button></div>
+  </div>
+</div>
+<script src="/static/qrcode.js"></script>
 <script src="/static/caption-client.js"></script>
 <script>
   document.getElementById("ov").textContent = location.origin + "/overlay";
@@ -53,6 +89,91 @@
     pub.disabled = !p.url && !p.enabled;
     pub.classList.toggle("on", p.enabled && p.ok !== false);
     if (p.url) document.getElementById("publink").innerHTML = `<a href="${p.url}">${p.url}</a>`;
+    lanIp = s.lan_ip || ""; hubPort = s.port || location.port || 80;
+    updateQR("public", p.url || "");
+    updateQR("local", localUrl());
+  }
+
+  // ---------- QR codes ----------
+  // The hub is usually opened as localhost, so the local code uses the LAN address the hub reports,
+  // unless someone typed one in (kept in this browser).
+  let lanIp = "", hubPort = 8787;
+  const hostEl = document.getElementById("host");
+  let savedHost = ""; try { savedHost = localStorage.qrHost || ""; } catch (e) {}
+  hostEl.addEventListener("input", () => {
+    savedHost = hostEl.value.trim(); try { localStorage.qrHost = savedHost; } catch (e) {}
+    updateQR("local", localUrl());
+  });
+  function localUrl() {
+    const isLocal = /^(localhost|127\.|\[?::1)/.test(location.hostname);
+    const host = savedHost || lanIp || (isLocal ? "" : location.hostname);
+    if (document.activeElement !== hostEl) hostEl.value = host;
+    return host ? `http://${host}:${hubPort}/reader` : "";
+  }
+  const CARDS = {
+    local:  {title: "Live Captions", sub: "Scan on church Wi-Fi", file: "captions-qr-church-wifi"},
+    public: {title: "Live Captions", sub: "Scan to follow along on your phone", file: "captions-qr-public"},
+  };
+  const urls = {local: "", public: ""};
+  function matrix(url) {
+    const q = qrcode(0, "M"); q.addData(url); q.make();
+    const n = q.getModuleCount(), rows = [];
+    for (let r = 0; r < n; r++) { const row = []; for (let c = 0; c < n; c++) row.push(q.isDark(r, c)); rows.push(row); }
+    return rows;
+  }
+  function qrPath(m, x0, y0, cell) {    // one path of unit squares; shared by the on-page and SVG versions
+    let d = "";
+    m.forEach((row, r) => row.forEach((dark, c) => { if (dark) d += `M${x0 + c * cell} ${y0 + r * cell}h${cell}v${cell}h-${cell}z`; }));
+    return d;
+  }
+  function updateQR(kind, url) {
+    if (url === urls[kind]) return;
+    urls[kind] = url;
+    document.getElementById("url-" + kind).textContent = url || (kind === "local" ? "Type this Mac's address below" : "not set up — see Settings → Public captions");
+    const box = document.getElementById("qr-" + kind);
+    if (!url) { box.innerHTML = ""; return; }
+    const m = matrix(url), n = m.length + 8;            // 4-module quiet zone each side
+    box.innerHTML = `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges"><rect width="${n}" height="${n}" fill="#fff"/><path d="${qrPath(m, 4, 4, 1)}" fill="#000"/></svg>`;
+  }
+  // Printable card: title, instruction, cyan rule, code, address. Same geometry for SVG and PNG.
+  function layout(kind) {
+    const url = urls[kind], m = matrix(url), W = 1200, pad = 90;
+    const cell = Math.floor((W - 2 * pad) / (m.length + 8)), qrSize = cell * (m.length + 8);
+    const qrX = (W - qrSize) / 2, qrY = 300;
+    return {url, m, W, H: qrY + qrSize + 170, cell, qrX, qrY, qrSize, ...CARDS[kind]};
+  }
+  const xml = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  function cardSvg(L) {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${L.W}" height="${L.H}" viewBox="0 0 ${L.W} ${L.H}">
+<rect width="${L.W}" height="${L.H}" fill="#fff"/>
+<text x="${L.W / 2}" y="130" text-anchor="middle" font-family="Lato, Helvetica, Arial, sans-serif" font-weight="900" font-size="88" fill="#000">${xml(L.title)}</text>
+<text x="${L.W / 2}" y="200" text-anchor="middle" font-family="Lato, Helvetica, Arial, sans-serif" font-weight="700" font-size="44" fill="#595959">${xml(L.sub)}</text>
+<rect x="${L.W / 2 - 80}" y="236" width="160" height="10" rx="5" fill="#02CAF2"/>
+<path d="${qrPath(L.m, L.qrX + 4 * L.cell, L.qrY + 4 * L.cell, L.cell)}" fill="#000" shape-rendering="crispEdges"/>
+<text x="${L.W / 2}" y="${L.qrY + L.qrSize + 90}" text-anchor="middle" font-family="Lato, Helvetica, Arial, sans-serif" font-size="38" fill="#000">${xml(L.url.replace(/^https?:\/\//, ""))}</text>
+</svg>`;
+  }
+  async function cardPng(L) {
+    await Promise.all(["900 88px Lato", "700 44px Lato", "400 38px Lato"].map(f => document.fonts.load(f)));
+    const cv = document.createElement("canvas"); cv.width = L.W; cv.height = L.H;
+    const g = cv.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, L.W, L.H);
+    g.textAlign = "center";
+    g.fillStyle = "#000"; g.font = "900 88px Lato, Helvetica, sans-serif"; g.fillText(L.title, L.W / 2, 130);
+    g.fillStyle = "#595959"; g.font = "700 44px Lato, Helvetica, sans-serif"; g.fillText(L.sub, L.W / 2, 200);
+    g.fillStyle = "#02CAF2"; g.fillRect(L.W / 2 - 80, 236, 160, 10);
+    g.fillStyle = "#000";
+    L.m.forEach((row, r) => row.forEach((dark, c) => { if (dark) g.fillRect(L.qrX + (c + 4) * L.cell, L.qrY + (r + 4) * L.cell, L.cell, L.cell); }));
+    g.font = "400 38px Lato, Helvetica, sans-serif"; g.fillText(L.url.replace(/^https?:\/\//, ""), L.W / 2, L.qrY + L.qrSize + 90);
+    return new Promise(res => cv.toBlob(res, "image/png"));
+  }
+  async function download(kind, fmt) {
+    if (!urls[kind]) { alert(kind === "local" ? "Type this Mac's address first." : "Set up public captions in Settings first."); return; }
+    const L = layout(kind);
+    const blob = fmt === "svg" ? new Blob([cardSvg(L)], {type: "image/svg+xml"}) : await cardPng(L);
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${L.file}.${fmt}`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
   refresh(); setInterval(refresh, 5000);
   const pv = document.getElementById("preview"); let last = [];

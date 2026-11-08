@@ -86,6 +86,9 @@ components are governed by their own licenses, not by this one:
   - The Lato fonts in hub/static/fonts, by Lukasz Dziedzic, under the SIL Open
     Font License 1.1 in hub/static/fonts/OFL.txt. Lato is a trademark of
     tyPoland Lukasz Dziedzic.
+  - hub/static/qrcode.js, qrcode-generator by Kazuhiko Arase, under the MIT
+    license stated in that file. "QR Code" is a registered trademark of
+    DENSO WAVE INCORPORATED.
   - The vocabulary list in data/lexicon.json is derived from the World English
     Bible, which is in the public domain. The Bible text itself is NOT included.
     "World English Bible" is a trademark of eBible.org; the Software is not

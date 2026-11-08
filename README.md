@@ -127,7 +127,8 @@ On the same network as the Mac, open `http://<mac-ip>:8787/reader` (off the netw
 
 - **Add to Home Screen** (Share menu) makes it feel like an app.
 - For tablets handed to attendees, turn on **Guided Access** (Settings → Accessibility) so they stay on the page.
-- Give the Mac a **DHCP reservation** so the address never changes, and print a QR code of the URL.
+- Give the Mac a **DHCP reservation** so the address never changes. The hub page (`http://<mac-ip>:8787`)
+  has ready-to-print **QR codes** for the church-Wi-Fi reader and the public page, as PNG or SVG.
 - **Guest Wi-Fi usually can't reach it** — most guest networks isolate clients. To let members use their own
   phones, allow port 8787 from the guest network to the Mac, and set a settings password first.
 

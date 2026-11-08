@@ -11,6 +11,7 @@ import asyncio
 import base64
 import json
 import secrets
+import socket
 import subprocess
 import sys
 import time
@@ -388,6 +389,17 @@ async def _set_public(on: bool):
     return hub.public.state()
 
 
+def lan_ip() -> str:
+    """This Mac's address on the LAN, for the hub page's QR codes (it is usually opened as localhost).
+    Connecting a UDP socket sends nothing; it only makes the OS pick the outgoing interface."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except OSError:
+        return ""
+
+
 @app.get("/api/status")
 def status():
     t = hub.transcriber
@@ -395,6 +407,7 @@ def status():
                          "clients": len(hub.clients), "lines": len(hub.history), "device": t.device_name(),
                          "level_db": round(t.level_db, 1), "speaking": t.speaking, "dropped": t.dropped,
                          "focus": hub.vocab.focus_codes(), "books": hub.book_names(),
+                         "lan_ip": lan_ip(), "port": int(CONFIG["hub"]["port"]),
                          "public": hub.public.state()})
 
 
